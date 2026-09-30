@@ -1,0 +1,133 @@
+Prompt: 
+
+there's no read me file, how do i add one:
+
+You haven't done anything wrong. The README doesn't exist yet. The "add proj skeleton" commit on main only has requirements.txt in it, so nothing is missing and nothing was lost. Your git log also shows two other things to handle:
+
+360337f "now should work" (the data commit) is one commit ahead of GitHub. Your earlier push failed because of a typo (data-downloaded), and the push to main did nothing because main was already up to date.
+That commit message is vague, and the assignment grades commit messages. Since it hasn't been pushed, you can rewrite it safely.
+
+Also, git check-ignore printed nothing, which means nothing is being ignored by a .gitignore. Your listing doesn't show one, and I can't tell from the screenshot whether it exists because the file browser hides dotfiles. Step 2 checks.
+
+1. Fix the last commit message
+
+You're already in the repo root (stat159proj1$), which is correct. Run:
+
+bash
+git commit --amend -m "Add raw GISTEMP data for graphics 1-3 (manual download)"
+
+Only do this before pushing. After a push, rewriting history causes problems.
+
+2. Check for a .gitignore, then create the missing files
+bash
+ls -a
+
+If you don't see .gitignore, create it:
+
+bash
+cat > .gitignore << 'EOF'
+.venv/
+__pycache__/
+.ipynb_checkpoints/
+.DS_Store
+EOF
+
+Then create the other two files, empty for now:
+
+bash
+touch README.md ai_documentation.txt
+
+Refresh the JupyterLab file browser (the circular arrow) and double-click README.md to open it in the editor. If you already have a .gitignore, leave it alone.
+
+3. Paste in a README draft
+
+Copy this into README.md, replace the bracketed parts, and save with Ctrl+S (Cmd+S on Mac):
+
+markdown
+# Replicating Global Temperature Anomaly Graphics
+
+[Your name] | [Course, e.g. STAT 159] | Project 1
+
+## Overview
+This project replicates four graphics of global temperature anomalies using
+NASA GISS Surface Temperature Analysis (GISTEMP v4) data. Graphics 1-3 come
+from NASA's GISTEMP website. Graphic 4 replicates the New York Times line chart
+"Rising Global Temperature" (Schwartz and Popovich, Feb 6, 2019), which is a
+modified version of Graphic 3.
+
+## Data Source
+NASA GISS GISTEMP v4: https://data.giss.nasa.gov/gistemp/data_v4.html
+
+| File in `data/` | Used for |
+|---|---|
+| `graphic1_land_ocean.csv` | Graphic 1: anomalies over land and ocean |
+| `graphic2_seasonal_cycle.csv` | Graphic 2: seasonal cycle since 1880 |
+| `graphic3_global_mean.csv` | Graphics 3 and 4: global annual mean |
+
+**Note on data collection:** `scripts/download_data.py` downloads these files.
+When I ran it on the course JupyterHub, NASA's server refused the connection, so
+the three CSVs in `data/` were downloaded manually in a browser from the same URLs.
+The script is included for reproducibility.
+
+## Repository Structure
+```
+README.md
+requirements.txt
+ai_documentation.txt
+data/        raw GISTEMP CSV files
+scripts/     download script and one notebook per graphic
+outputs/     figures saved as PNG and PDF
+report/      executive summary with the four figures
+```
+
+## Setup
+```bash
+python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+## How to Reproduce
+1. (Optional) `python scripts/download_data.py` to re-download the data.
+2. Run the notebooks in `scripts/`, one per graphic.
+3. Figures are saved to `outputs/` as PNG and PDF.
+4. The report is in `report/`.
+
+## Graphics
+To be completed.
+
+## Git Workflow
+Work was done on separate branches (`data-download`, `graphic-1`, `graphic-2`,
+`graphic-3`, `graphic-4`, `report`) and merged into `main` through pull requests.
+
+## Notes on Differences from Originals
+To be completed.
+
+## AI Assistance
+Prompts and outputs are logged in `ai_documentation.txt`.
+
+## Credits
+Data and original graphics: NASA GISS / GISTEMP v4. Graphic 4 is based on the
+New York Times article "It's Official: 2018 Was the Fourth-Warmest Year on Record."
+4. Commit and push
+bash
+git status
+git add README.md .gitignore ai_documentation.txt
+git commit -m "Add README draft, .gitignore and AI documentation log"
+git push -u origin data-download
+
+git status should show the three files as untracked before you add them, and it shouldn't list .venv/. If you paste something into ai_documentation.txt first, even better, but an empty file is fine for now.
+
+5. Open the pull request and merge
+
+Go to the repo on GitHub and use the Compare & pull request banner. Put this in the description: "Adds the download script, the raw data (downloaded manually because NASA blocked the JupyterHub), a README draft and .gitignore." Then create and merge the PR, and finish with:
+
+bash
+git switch main
+git pull
+
+Afterwards, ls on main should show README.md, data/, scripts/ and the rest.
+
+If git push complains about anything, paste the message. Otherwise tell me when the PR is merged, and we'll start the graphic-1 branch and its notebook.
+
+
