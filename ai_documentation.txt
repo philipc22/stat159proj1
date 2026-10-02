@@ -750,3 +750,34 @@ mv ~/.git ~/.git_unused
 After that, git status in ~ will say "not a git repository", which is correct. Your project repo is unaffected, because it has its own .git folder.
 
 As before, always cd ~/stat159/homeworks/stat159proj1 before running git commands.
+
+
+
+Prompt: (screenshoted the pdf generated & the graph directly from nasa website to compare):Commit, push and merge. From the repo root, one block at a time:
+
+git status
+
+Expect exactly outputs/graphic3_global_mean.pdf, outputs/graphic3_global_mean.png and scripts/graphic3_global_mean.ipynb under Untracked, plus ai_documentation.txt if you logged prompts. There should be no Untitled.ipynb. If you see anything else, stop and paste it to me.
+
+git add scripts/graphic3_global_mean.ipynb
+git commit -m "Add graphic 3 notebook: load, clean and plot global mean anomalies"
+git add outputs/graphic3_global_mean.png outputs/graphic3_global_mean.pdf
+git commit -m "Save graphic 3 figures as png and pdf"
+git add ai_documentation.txt
+git commit -m "Log AI assistance for graphic 3 in ai_documentation.txt"
+git push -u origin graphic-3
+
+You need -u because this is the first push of graphic-3. Expect * [new branch] graphic-3 -> graphic-3.
+
+Then open and merge PR #4 on GitHub: base main ← graphic-3, titled "Add graphic 3: global mean land-ocean temperature". Click Create, then Merge, then Confirm.
+
+Then start graphic-4, and don't forget git pull this time:
+
+git switch main
+git pull
+git log --oneline -1
+git switch -c graphic-4
+
+git pull should say "Fast-forward", and the log should show Merge pull request #4 on top.
+
+Paste that output, and I'll send the Graphic 4 (NYT) cells. That one reuses this same CSV, re-baselined to 1880-1899 and cut at 2018.
