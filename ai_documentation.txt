@@ -283,3 +283,470 @@ Keep your AI log going
 Paste your prompts and my responses into ai_documentation.txt. You can commit it along with your next changes.
 
 Try running the notebook and tell me what happens. Upload a screenshot of your plot or paste any error, and I'll help you tune it.
+
+
+
+
+
+
+
+Prompt:
+Here is the result after pasting it all
+
+Graphic 2: GISTEMP Seasonal Cycle since 1880
+Replication of NASA GISS’s chart of monthly temperature anomalies, with one line per year from 1880 to today, colored by year.
+
+Setup
+Import the libraries and define paths relative to the repo root, since this notebook runs from scripts/.
+
+Selection deleted
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from matplotlib.colors import LinearSegmentedColormap, Normalize
+
+ROOT = Path.cwd().parent
+DATA = ROOT / "data"
+OUT = ROOT / "outputs"
+OUT.mkdir(exist_ok=True)
+2. Load the data
+The CSV starts with a title line and a Year,Anomaly header, so we skip both and name the columns ourselves. The year is a decimal year (e.g. 1880.04 = January 1880), so each row is one month.
+
+df = pd.read_csv(DATA / "graphic2_seasonal_cycle.csv", skiprows=2,
+names=["decimal_year", "anomaly"])
+df.head()
+decimal_year anomaly
+0 1880.04 -2.61
+1 1880.13 -2.42
+2 1880.21 -1.58
+3 1880.29 -0.64
+4 1880.38 0.36
+3. Inspect and clean
+Split the decimal year into a calendar year and a month. The fractional part is the middle of each month (0.04 = Jan, 0.13 = Feb, ..., 0.96 = Dec), so multiplying it by 12 and rounding down gives the month index.
+
+df = df.apply(pd.to_numeric, errors="coerce").dropna() # non-numeric rows become NaN
+df["year"] = np.floor(df["decimal_year"]).astype(int)
+df["month"] = ((df["decimal_year"] - df["year"]) * 12).astype(int) + 1
+print(df.shape)
+print(df["month"].value_counts().sort_index())
+df.groupby("year").size().tail(3)
+(1760, 4)
+month
+1 147
+2 147
+3 147
+4 147
+5 147
+6 147
+7 147
+8 147
+9 146
+10 146
+11 146
+12 146
+Name: count, dtype: int64
+year
+2024 12
+2025 12
+2026 8
+dtype: int64
+
+Reshape: one row per month, one column per year
+
+seasonal = df.pivot(index="month", columns="year", values="anomaly")
+seasonal.iloc[:, -3:]
+year 2024 2025 2026
+month
+1 -1.17 -1.04 -1.33
+2 -0.72 -0.90 -0.91
+3 -0.08 -0.11 -0.16
+4 0.85 0.78 0.70
+5 1.63 1.55 1.60
+6 2.38 2.22 2.33
+7 2.62 2.44 2.67
+8 2.59 2.47 2.69
+9 1.87 1.91 NaN
+10 0.99 0.83 NaN
+11 -0.16 -0.25 NaN
+12 -0.88 -1.09 NaN
+4. Create the plot
+A function that draws one line per year, colored from blue (1880) through green, orange and red to purple (latest year). The latest year is drawn thicker with black dots, like NASA’s chart.
+
+MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+Approximation of NASA's year colormap: blue -> green -> orange -> dark red -> purple
+
+YEAR_CMAP = LinearSegmentedColormap.from_list(
+"nasa_like", ["#1f4e9c", "#2ca25f", "#f39c12", "#a50f15", "#6a1b9a"])
+
+def plot_seasonal_cycle(seasonal):
+"""Recreate NASA's seasonal cycle chart: one line per year, colored by year."""
+years = seasonal.columns
+latest = years.max()
+norm = Normalize(vmin=years.min(), vmax=latest) # maps a year to 0-1 for the colormap
+legend_years = list(range(1880, 2021, 20))
+
+fig, ax = plt.subplots(figsize=(10, 6.5))
+for year in years[years != latest]:
+    label = str(year) if year in legend_years else None
+    ax.plot(seasonal.index, seasonal[year], color=YEAR_CMAP(norm(year)),
+            linewidth=0.8, label=label)
+# Latest (partial) year drawn last so it sits on top
+ax.plot(seasonal.index, seasonal[latest], color=YEAR_CMAP(norm(latest)),
+        linewidth=2, marker="o", markersize=5, markerfacecolor="black",
+        markeredgecolor="black", label=str(latest))
+
+ax.set_title("GISTEMP Seasonal Cycle since 1880", fontsize=14)
+ax.set_ylabel("Temperature Anomaly w.r.t. 1980-2015 (°C)", fontsize=12)
+ax.set_xticks(range(1, 13))
+ax.set_xticklabels(MONTHS)
+ax.set_xlim(0.7, 12.3)
+ax.set_ylim(-4.0, 3.0)
+ax.legend(loc="upper left", frameon=True, fontsize=9)
+ax.spines[["top", "right"]].set_visible(False)
+ax.text(0.98, 0.03, "Seasonal cycle from MERRA2. Figure: NASA/GISS/GISTEMP v4",
+        transform=ax.transAxes, ha="right", fontsize=10, color="#444444")
+return fig, ax
+
+fig, ax = plot_seasonal_cycle(seasonal)
+plt.show()
+
+Save the figure
+Save the figure to outputs/ as both PNG and PDF.
+
+fig.savefig(OUT / "graphic2_seasonal_cycle.png", dpi=300, bbox_inches="tight")
+fig.savefig(OUT / "graphic2_seasonal_cycle.pdf", bbox_inches="tight",
+metadata={"CreationDate": None})
+
+Click to add a cell.
+
+Your chart is already very close: the data, the shape and the 2026 dots all line up with NASA's. The differences are all styling:
+
+Y-axis: NASA puts a tick every 0.5 with one decimal (-4.0, -3.5, …, 3.0). Yours ticks every 1.
+Colors: NASA's run blue → teal → green → gold → orange → dark red (2020), and only the latest year is purple. Ours turned purple too early, so 2000-2025 looked purple.
+Lines: NASA's are thicker and brighter.
+Legend: each year's text is in its line's color, and 2026 shows a plain purple line with no dot.
+Text: the month labels and the footer are bigger.
+
+Change: in the ## 4. Create the plot section, click into the code cell that starts with MONTHS = [...], select all of it (Ctrl+A), delete it, and paste this. Don't touch the other cells.
+
+MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+          "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+# Approximation of NASA's year colors, one stop per ~20 years:
+# blue -> teal -> green -> gold -> orange -> dark red
+YEAR_CMAP = LinearSegmentedColormap.from_list(
+    "nasa_like", ["#4B5FE8", "#4A7FD6", "#5AA5B5", "#83BF8E",
+                  "#A5BE62", "#C59A45", "#E0743D", "#A8322A"])
+LATEST_COLOR = "#6A1B9A"  # NASA draws the current year in purple
+
+
+def plot_seasonal_cycle(seasonal):
+    """Recreate NASA's seasonal cycle chart: one line per year, colored by year."""
+    years = seasonal.columns
+    latest = years.max()
+    norm = Normalize(vmin=years.min(), vmax=latest - 1)  # maps a year to 0-1 for the colormap
+    legend_years = list(range(1880, 2021, 20))
+
+    fig, ax = plt.subplots(figsize=(11, 7))
+    for year in years[years != latest]:
+        label = str(year) if year in legend_years else None
+        ax.plot(seasonal.index, seasonal[year], color=YEAR_CMAP(norm(year)),
+                linewidth=1.5, label=label)
+    # Latest (partial) year on top: purple line, plus black dots kept out of the legend
+    ax.plot(seasonal.index, seasonal[latest], color=LATEST_COLOR,
+            linewidth=1.5, label=str(latest))
+    ax.plot(seasonal.index, seasonal[latest], linestyle="none", marker="o",
+            markersize=6, color="black")
+
+    ax.set_title("GISTEMP Seasonal Cycle since 1880", fontsize=16)
+    ax.set_ylabel("Temperature Anomaly w.r.t. 1980-2015 (°C)", fontsize=14)
+    ax.set_xticks(range(1, 13))
+    ax.set_xticklabels(MONTHS, fontsize=14)
+    ax.set_xlim(0.5, 12.5)
+    ax.set_yticks(np.arange(-4.0, 3.01, 0.5))  # a tick every 0.5 °C
+    ax.yaxis.set_major_formatter("{x:.1f}")      # labels like -4.0, -3.5, ..., 3.0
+    ax.set_ylim(-4.0, 3.0)
+    ax.legend(loc="upper left", frameon=True, fontsize=11,
+              labelcolor="linecolor")  # legend text in each line's color
+    ax.spines[["top", "right"]].set_visible(False)
+    ax.text(0.99, 0.02, "Seasonal cycle from MERRA2. Figure: NASA/GISS/GISTEMP v4",
+            transform=ax.transAxes, ha="right", fontsize=13, color="#333333")
+    return fig, ax
+
+I tested it here. The colors and the legend come out like NASA's. Then click Kernel, then "Restart Kernel and Run All Cells", and send me a screenshot.
+
+In ## 6. Notes, you can now say that the colors are approximated with a custom 8-color map. Please also log this prompt in ai_documentation.txt.
+
+ok, here is graphic2_season notebook finished and done, should be good, what do i do now? help me with the git push process and starting to get the thrid and fourth graphic
+
+Graphic 2: GISTEMP Seasonal Cycle since 1880
+Replication of NASA GISS’s chart of monthly temperature anomalies, with one line per year from 1880 to today, colored by year.
+
+Setup
+Import the libraries and define paths relative to the repo root, since this notebook runs from scripts/.
+
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from matplotlib.colors import LinearSegmentedColormap, Normalize
+
+ROOT = Path.cwd().parent
+DATA = ROOT / "data"
+OUT = ROOT / "outputs"
+OUT.mkdir(exist_ok=True)
+2. Load the data
+The CSV starts with a title line and a Year,Anomaly header, so we skip both and name the columns ourselves. The year is a decimal year (e.g. 1880.04 = January 1880), so each row is one month.
+
+df = pd.read_csv(DATA / "graphic2_seasonal_cycle.csv", skiprows=2,
+names=["decimal_year", "anomaly"])
+df.head()
+decimal_year anomaly
+0 1880.04 -2.61
+1 1880.13 -2.42
+2 1880.21 -1.58
+3 1880.29 -0.64
+4 1880.38 0.36
+3. Inspect and clean
+Split the decimal year into a calendar year and a month. The fractional part is the middle of each month (0.04 = Jan, 0.13 = Feb, ..., 0.96 = Dec), so multiplying it by 12 and rounding down gives the month index.
+
+df = df.apply(pd.to_numeric, errors="coerce").dropna() # non-numeric rows become NaN
+df["year"] = np.floor(df["decimal_year"]).astype(int)
+df["month"] = ((df["decimal_year"] - df["year"]) * 12).astype(int) + 1
+print(df.shape)
+print(df["month"].value_counts().sort_index())
+df.groupby("year").size().tail(3)
+(1760, 4)
+month
+1 147
+2 147
+3 147
+4 147
+5 147
+6 147
+7 147
+8 147
+9 146
+10 146
+11 146
+12 146
+Name: count, dtype: int64
+year
+2024 12
+2025 12
+2026 8
+dtype: int64
+
+Reshape: one row per month, one column per year
+
+seasonal = df.pivot(index="month", columns="year", values="anomaly")
+seasonal.iloc[:, -3:]
+year 2024 2025 2026
+month
+1 -1.17 -1.04 -1.33
+2 -0.72 -0.90 -0.91
+3 -0.08 -0.11 -0.16
+4 0.85 0.78 0.70
+5 1.63 1.55 1.60
+6 2.38 2.22 2.33
+7 2.62 2.44 2.67
+8 2.59 2.47 2.69
+9 1.87 1.91 NaN
+10 0.99 0.83 NaN
+11 -0.16 -0.25 NaN
+12 -0.88 -1.09 NaN
+4. Create the plot
+A function that draws one line per year, colored from blue (1880) through green, orange and red to purple (latest year). The latest year is drawn thicker with black dots, like NASA’s chart.
+
+MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+Approximation of NASA's year colors, one stop per ~20 years:
+blue -> teal -> green -> gold -> orange -> dark red
+
+YEAR_CMAP = LinearSegmentedColormap.from_list(
+"nasa_like", ["#4B5FE8", "#4A7FD6", "#5AA5B5", "#83BF8E",
+"#A5BE62", "#C59A45", "#E0743D", "#A8322A"])
+LATEST_COLOR = "#6A1B9A" # NASA draws the current year in purple
+
+def plot_seasonal_cycle(seasonal):
+"""Recreate NASA's seasonal cycle chart: one line per year, colored by year."""
+years = seasonal.columns
+latest = years.max()
+norm = Normalize(vmin=years.min(), vmax=latest - 1) # maps a year to 0-1 for the colormap
+legend_years = list(range(1880, 2021, 20))
+
+fig, ax = plt.subplots(figsize=(11, 7))
+for year in years[years != latest]:
+    label = str(year) if year in legend_years else None
+    ax.plot(seasonal.index, seasonal[year], color=YEAR_CMAP(norm(year)),
+            linewidth=1.5, label=label)
+# Latest (partial) year on top: purple line, plus black dots kept out of the legend
+ax.plot(seasonal.index, seasonal[latest], color=LATEST_COLOR,
+        linewidth=1.5, label=str(latest))
+ax.plot(seasonal.index, seasonal[latest], linestyle="none", marker="o",
+        markersize=6, color="black")
+
+ax.set_title("GISTEMP Seasonal Cycle since 1880", fontsize=16)
+ax.set_ylabel("Temperature Anomaly w.r.t. 1980-2015 (°C)", fontsize=14)
+ax.set_xticks(range(1, 13))
+ax.set_xticklabels(MONTHS, fontsize=14)
+ax.set_xlim(0.5, 12.5)
+ax.set_yticks(np.arange(-4.0, 3.01, 0.5))  # a tick every 0.5 °C
+ax.yaxis.set_major_formatter("{x:.1f}")      # labels like -4.0, -3.5, ..., 3.0
+ax.set_ylim(-4.0, 3.0)
+ax.legend(loc="upper left", frameon=True, fontsize=11,
+          labelcolor="linecolor")  # legend text in each line's color
+ax.spines[["top", "right"]].set_visible(False)
+ax.text(0.99, 0.02, "Seasonal cycle from MERRA2. Figure: NASA/GISS/GISTEMP v4",
+        transform=ax.transAxes, ha="right", fontsize=13, color="#333333")
+return fig, ax
+
+fig, ax = plot_seasonal_cycle(seasonal)
+plt.show()
+
+Save the figure
+Save the figure to outputs/ as both PNG and PDF.
+
+fig.savefig(OUT / "graphic2_seasonal_cycle.png", dpi=300, bbox_inches="tight")
+fig.savefig(OUT / "graphic2_seasonal_cycle.pdf", bbox_inches="tight",
+metadata={"CreationDate": None})
+6. Notes
+Every year follows the same seasonal shape, coldest in Dec-Feb and warmest in Jul-Aug, but the whole curve has shifted upward over time: recent years sit well above the 1880s in every month. Differences from NASA’s chart: the colormap is an approximation of NASA’s, fonts are matplotlib defaults, and 2026 only has data through August.
+
+Click to add a cell.
+
+Pushed graphic-2 with the Graphic 1 fixes
+
+Drafted and tested the Graphic 2 cells
+
+Finished the notebook on JupyterHub
+
+Committing, pushing and merging graphic-2
+
+Start graphic-3 and check its data
+
+The notebook looks good. Two small text fixes first, then git.
+
+A. Two quick edits (then Restart and Run All, and Ctrl+S)
+
+In the Setup cell, put this comment back on the line above ROOT = ...: # The notebook runs from scripts/, so the repo root is one level up
+The ## 4. Create the plot markdown no longer matches the code. Replace its sentence with: "A function that draws one line per year, colored from blue (1880) through teal, green, gold and orange to dark red (2025). The latest year is purple with black dots, like NASA's chart."
+
+B. Commit and push. Run these from the repo root, one block at a time:
+
+git status
+
+Expect scripts/graphic2_seasonal_cycle.ipynb and the two outputs/graphic2_* files under "Untracked files", plus ai_documentation.txt if you logged prompts. If anything else is listed, stop and paste it to me.
+
+git add scripts/graphic2_seasonal_cycle.ipynb
+git commit -m "Add graphic 2 notebook: load, split decimal years and plot seasonal cycle"
+git add outputs/graphic2_seasonal_cycle.png outputs/graphic2_seasonal_cycle.pdf
+git commit -m "Save graphic 2 figures as png and pdf"
+git add ai_documentation.txt
+git commit -m "Log AI assistance for graphic 2 in ai_documentation.txt"
+git push
+
+Splitting this into three commits gives you a clearer history for grading. A plain git push works because you already set up tracking with -u. Expect the push to end with graphic-2 -> graphic-2.
+
+C. Open and merge PR #3 the same way as last time: base main ← compare graphic-2, titled "Add graphic 2: seasonal cycle (plus graphic 1 headings)". Click Create, then Merge, then Confirm. Don't delete the branch.
+
+D. Start graphic-3
+
+git status
+
+It must say "working tree clean". If it doesn't, stop and paste it to me.
+
+git switch main
+git pull
+git log --oneline -1
+
+Expect "Fast-forward" and Merge pull request #3 on top. If you see error: or Aborting, stop.
+
+git switch -c graphic-3
+
+E. Show me the Graphic 3 data. This settles the open question about the gray uncertainty band:
+
+head -5 data/graphic3_global_mean.csv
+tail -3 data/graphic3_global_mean.csv
+
+If the header has only Year,No_Smoothing,Lowess(5), there's no uncertainty data, and we'll replicate without the band and say so in the notes.
+
+About Graphic 4: it reuses the Graphic 3 data (re-baselined to 1880-1899, through 2018), so we'll do it after graphic-3 is merged, as planned. Paste the outputs from D and E when you get there.
+
+now i do git add stuff right?
+
+jovyan@jupyter-philipc:~$ git status
+On branch master
+
+No commits yet
+
+Untracked files:
+(use "git add <file>..." to include in what will be committed)
+.bash_history
+.cache/
+.config/
+.gitconfig
+.ipynb_checkpoints/
+.ipython/
+.jupyter/
+.lesshst
+.local/
+.npm/
+.viminfo
+.virtual_documents/
+Untitled.ipynb
+_shared/
+filt.txt
+stat159/
+
+nothing added to commit but untracked files present (use "git add" to track)
+jovyan@jupyter-philipc:$ ls
+filt.txt _shared stat159 Untitled.ipynb
+jovyan@jupyter-philipc:$ cd stat159
+jovyan@jupyter-philipc:/stat159$ ls
+homeworks labs
+jovyan@jupyter-philipc:/stat159$ cd homeworks
+jovyan@jupyter-philipc:/stat159/homeworks$ ls
+stat159proj1
+jovyan@jupyter-philipc:/stat159/homeworks$ cd stat159proj1/
+jovyan@jupyter-philipc:~/stat159/homeworks/stat159proj1$ git status
+On branch graphic-2
+Your branch is up to date with 'origin/graphic-2'.
+
+Untracked files:
+(use "git add <file>..." to include in what will be committed)
+outputs/graphic2_seasonal_cycle.pdf
+outputs/graphic2_seasonal_cycle.png
+scripts/graphic2_seasonal_cycle.ipynb
+
+nothing added to commit but untracked files present (use "git add" to track)
+jovyan@jupyter-philipc:~/stat159/homeworks/stat159proj1$
+
+Yes. In the repo folder, git status shows exactly the three Graphic 2 files, which is what we want. Before you add them, make sure you've done the two small notebook edits (the Setup comment and the section 4 sentence), re-run, and saved.
+
+Then, from ~/stat159/homeworks/stat159proj1:
+
+git add scripts/graphic2_seasonal_cycle.ipynb
+git commit -m "Add graphic 2 notebook: load, split decimal years and plot seasonal cycle"
+git add outputs/graphic2_seasonal_cycle.png outputs/graphic2_seasonal_cycle.pdf
+git commit -m "Save graphic 2 figures as png and pdf"
+git push
+
+ai_documentation.txt doesn't show as modified, so you haven't logged prompts since the last commit. Add them, then run:
+
+git add ai_documentation.txt
+git commit -m "Log AI assistance for graphic 2 in ai_documentation.txt"
+git push
+
+Something to know about: the first git status you ran, in your home folder ~, shows that your whole home folder is also a git repository ("On branch master, No commits yet"). Someone must have run git init there at some point. It doesn't affect your project. It is a trap, though: running git add . in ~ would try to stage everything, including .gitconfig and your shell history. It has no commits, so nothing in it is worth keeping. To make it inactive safely, run this exactly as written (it renames it, so it's reversible):
+
+mv ~/.git ~/.git_unused
+
+After that, git status in ~ will say "not a git repository", which is correct. Your project repo is unaffected, because it has its own .git folder.
+
+As before, always cd ~/stat159/homeworks/stat159proj1 before running git commands.
