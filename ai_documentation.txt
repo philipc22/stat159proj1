@@ -1066,3 +1066,18 @@ def plot_nyt(df):
     return fig, ax
  
 I ran each notebook, compared the output with the original chart, and asked for adjustments until they matched.
+
+
+Prompt:
+ 
+Help me finish README.md. The "Graphics" and "Notes on Differences from Originals" sections still say "To be completed", and the Repository Structure list lost its spacing.
+ 
+ANS:
+ 
+The AI wrote a completed README.md that keeps my existing sections and changes three of them:
+- Repository Structure: rewrote the folder list with one line per file or folder and a short description of each (README.md, requirements.txt, ai_documentation.txt, .gitignore, data/, scripts/, outputs/, report/), since the old version had run the names into the descriptions (for example "data/raw GISTEMP CSV files").
+- Graphics: added a table listing each graphic's title, its notebook in scripts/ and its PNG/PDF files in outputs/, plus a pointer to report/report.md.
+- Notes on Differences from Originals: listed how each replication differs from the original. Colors and fonts are approximated by eye for all graphics. Graphic 2's 2026 line only has data through August. Graphic 3 leaves out NASA's gray uncertainty band because the CSV doesn't include it. Graphic 4's values are a few hundredths of a degree higher than in the NYT chart because NASA has revised GISTEMP v4 since 2019, and the data is re-baselined to 1880-1899 and cut at 2018 to match the article.
+ 
+I replaced README.md with this version, checked it in the Markdown Preview, and committed it.
+ 
