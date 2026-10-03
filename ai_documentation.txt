@@ -1,3 +1,5 @@
+
+
 Prompt: 
 
 there's no read me file, how do i add one:
@@ -134,6 +136,102 @@ Afterwards, ls on main should show README.md, data/, scripts/ and the rest.
 
 If git push complains about anything, paste the message. Otherwise tell me when the PR is merged, and we'll start the graphic-1 branch and its notebook.
 
+
+
+Prompt:
+
+Write the markdown (text) cells for my four graphic notebooks: a title and one-sentence intro for each notebook, and a one-sentence explanation under each section heading.
+
+ANS:
+
+--- scripts/graphic1_land_ocean.ipynb ---
+
+Graphic 1: Temperature Anomalies over Land and over Ocean
+Replication of NASA GISS's chart of annual land and ocean temperature anomalies (relative to 1951-1980), using GISTEMP v4 data.
+
+1. Setup
+Import the libraries and define paths relative to the repo root, since this notebook runs from scripts/.
+
+2. Load the data
+The CSV starts with a title line, and its header has two columns both named Lowess(5), so we skip the first 2 rows and name the columns ourselves.
+
+3. Inspect and clean
+Convert every column to numbers, drop rows without a year, and check the shape, missing values and summary statistics.
+
+4. Create plot
+A function that draws the four series (land and ocean, annual and smoothed) styled to match NASA's chart, and returns the figure and axes.
+
+5. Save the figure
+Save the figure to outputs/ as both PNG and PDF.
+
+--- scripts/graphic2_seasonal_cycle.ipynb ---
+
+Graphic 2: GISTEMP Seasonal Cycle since 1880
+Replication of NASA GISS's chart of monthly temperature anomalies, with one line per year from 1880 to today, colored by year.
+
+1. Setup
+Import the libraries and define paths relative to the repo root, since this notebook runs from scripts/.
+
+2. Load the data
+The CSV starts with a title line and a Year,Anomaly header, so we skip both and name the columns ourselves. The year is a decimal year (e.g. 1880.04 = January 1880), so each row is one month.
+
+3. Inspect and clean
+Split the decimal year into a calendar year and a month. The fractional part is the middle of each month (0.04 = Jan, 0.13 = Feb, ..., 0.96 = Dec), so multiplying it by 12 and rounding down gives the month index.
+
+4. Create the plot
+A function that draws one line per year, colored from blue (1880) through green, orange and red to purple (latest year). The latest year is drawn thicker with black dots, like NASA's chart.
+
+5. Save the figure
+Save the figure to outputs/ as both PNG and PDF.
+
+6. Notes
+Every year follows the same seasonal shape, coldest in Dec-Feb and warmest in Jul-Aug, but the whole curve has shifted upward over time: recent years sit well above the 1880s in every month. Differences from NASA's chart: the colormap is an approximation of NASA's, fonts are matplotlib defaults, and 2026 only has data through August.
+
+--- scripts/graphic3_global_mean.ipynb ---
+
+Graphic 3: Global Mean Estimates based on Land and Ocean Data
+Replication of NASA GISS's chart of the global annual mean surface temperature anomaly (relative to 1951-1980), with a Lowess-smoothed trend, using GISTEMP v4 data.
+
+1. Setup
+Import the libraries and define paths relative to the repo root, since this notebook runs from scripts/.
+
+2. Load the data
+The file starts with a quoted two-line title (which pandas reads as one row) and a header with a column named Lowess(5), so we skip 2 rows and name the columns ourselves.
+
+3. Inspect and clean
+Convert every column to numbers, drop rows without a year, and check the shape, missing values and summary statistics.
+
+4. Create the plot
+A function that draws the annual mean (black squares) and its Lowess smoothing (red), styled to match NASA's chart, and returns the figure and axes.
+
+5. Save the figure
+Save the figure to outputs/ as both PNG and PDF.
+
+6. Notes
+Global temperatures stayed within about 0.3 °C of the 1951-1980 average until the late 1970s, then rose steadily; the smoothed anomaly is about +1.2 °C by 2025. Differences from NASA's chart: the gray "LSAT+SST Uncertainty" band is omitted because the downloaded CSV contains only the annual mean and Lowess columns, and colors and fonts are approximated by eye.
+
+--- scripts/graphic4_nyt_replication.ipynb ---
+
+Graphic 4: Rising Global Temperature (New York Times)
+Replication of the New York Times chart "Rising Global Temperature" (Schwartz and Popovich, 2019), which re-plots NASA's GISTEMP v4 global annual mean through 2018, relative to the 1880-1899 average.
+
+1. Setup
+Import the libraries and define paths relative to the repo root, since this notebook runs from scripts/.
+
+2. Load and clean the data
+Same file and cleaning steps as Graphic 3: skip the quoted title and the header, name the columns, and convert them to numbers.
+
+3. Cut at 2018 and re-baseline
+The NYT article was published in February 2019, so keep the years through 2018. NASA measures anomalies against 1951-1980, but the NYT measures them against 1880-1899, so subtract the 1880-1899 mean from every year.
+
+4. Create the plot
+A function that draws each year as a dot colored by its anomaly, joined by a thin gray line, with the NYT's title, year labels and zero-line notes. It returns the figure and axes.
+
+5. Save the figure
+Save the figure to outputs/ as both PNG and PDF.
+
+6. Notes
+Relative to the late 19th century, global temperature rose about 1.1 °C by 2018, and 2018 ranks fourth-warmest after 2016, 2017 and 2015, matching the article's headline. Differences from the NYT chart: values are a few hundredths of a degree higher (2016 is +1.24 °C here vs about +1.22 °C in the NYT) because NASA has revised GISTEMP v4 since 2019; the article headline is left out because it belongs to the article, not the chart; and colors and fonts (the NYT uses its own typeface) are approximated by eye.
 
 
 
