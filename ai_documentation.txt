@@ -879,3 +879,190 @@ git switch -c graphic-4
 git pull should say "Fast-forward", and the log should show Merge pull request #4 on top.
 
 Paste that output, and I'll send the Graphic 4 (NYT) cells. That one reuses this same CSV, re-baselined to 1880-1899 and cut at 2018.
+
+
+
+
+Prompt:
+ 
+Help me write the report for report/report.md. The assignment asks for an executive summary of the project and the four replicated figures, each with a brief description. Also tell me how to add the pictures to the report.
+ 
+ANS:
+ 
+The AI drafted report/report.md from my notebooks' Notes sections and the data in data/:
+- An executive summary: four graphics replicated from NASA GISTEMP v4 data (three from NASA's website, one from the New York Times), all showing temperatures close to the late 19th century level until about the 1970s and a steady rise since, with the global annual mean about 1.2 C above the 1951-1980 average by 2025, land warming roughly twice as much as the ocean, and the whole seasonal cycle shifting upward.
+- One section per graphic with the figure and a 2-3 sentence description (what is plotted, the baseline, the main finding, and how it differs from the original).
+- A Data and Credits section citing NASA GISTEMP v4 and Schwartz and Popovich (NYT, 2019).
+ 
+To add the pictures, the AI explained that each figure is one markdown line pointing to its PNG in outputs/, using a relative path because the report sits in report/:
+ 
+![Graphic 1: Temperature Anomalies over Land and over Ocean](../outputs/graphic1_land_ocean.png)
+![Graphic 2: GISTEMP Seasonal Cycle since 1880](../outputs/graphic2_seasonal_cycle.png)
+![Graphic 3: Global Mean Estimates based on Land and Ocean Data](../outputs/graphic3_global_mean.png)
+![Graphic 4: Rising Global Temperature (New York Times)](../outputs/graphic4_nyt_replication.png)
+ 
+"../" means go up one folder. To check them: right-click report.md, Open With, Markdown Preview. The AI also pointed out that my folder was named reports/ instead of report/ (the name the assignment requires) and that the title line needed a leading "# " to be a heading. It also drafted the README's Graphics table and Notes on Differences from Originals sections.
+ 
+I reviewed and edited the report text myself before committing.
+ 
+ 
+Prompt:
+ 
+Help me format each graph and its colors so it looks like the target graph (NASA's three charts and the New York Times chart).
+ 
+ANS:
+ 
+The AI wrote the plotting function in each notebook, matching the originals by eye from screenshots. Main techniques used:
+- Colors as hex codes picked to match the originals (for example NASA's orange/red land and light blue/blue ocean lines, the black annual mean with a red Lowess line).
+- Square markers (marker="s") for annual values and thicker lines for smoothed values, like NASA.
+- Removing the top and right axis spines, and setting tick positions, axis limits and label formats to match the originals.
+- Graphic 2: a custom colormap (LinearSegmentedColormap) from blue through green, orange and red, with Normalize mapping each year to a color; the latest year drawn in purple with black dots; legend text colored like its line (labelcolor="linecolor").
+- Graphic 4: a diverging colormap (blue, white, orange-red) with TwoSlopeNorm centered at 0 so dots below the 1880-1899 average are blue and above are red; dotted gridlines; the title, subtitle, year labels and "HOTTER/COLDER" notes placed inside the plot with ax.text and ax.annotate; y labels formatted as +0.2°C.
+- Saving with metadata={"CreationDate": None} so the PDF does not change every time the notebook is re-run.
+ 
+Final plotting code:
+ 
+--- Graphic 1 (scripts/graphic1_land_ocean.ipynb) ---
+ 
+def plot_land_ocean(df):
+    """Recreate NASA's land vs. ocean temperature anomaly chart."""
+    fig, ax = plt.subplots(figsize=(10, 6.5))
+ 
+    ax.plot(df["year"], df["land_annual"], color="#F5A52E", marker="s", markersize=4, linewidth=1, label="Land Surface Air Temperature")
+    ax.plot(df["year"], df["land_lowess"], color="#E8301E", linewidth=2.5, label="Land Lowess Smoothing")
+    ax.plot(df["year"], df["ocean_annual"], color="#9ECDE8", marker="s", markersize=4, linewidth=1, label="Sea Surface Water Temperature")
+    ax.plot(df["year"], df["ocean_lowess"], color="#0000FF", linewidth=2.5, label="Sea Lowess Smoothing")
+    ax.set_title("Temperature Anomalies over Land and over Ocean", fontsize=14)
+    ax.set_ylabel("Temperature Anomaly w.r.t. 1951-80 (°C)", fontsize=12)
+    ax.set_xticks(range(1880, 2021, 20))
+    ax.set_ylim(-0.9, 2.0)
+    ax.legend(loc="upper left", frameon=True)
+    ax.spines[["top", "right"]].set_visible(False)
+    ax.text(0.98, 0.04, "NASA/GISS/GISTEMP v4", transform=ax.transAxes,ha="right", fontsize=11, color="#444444")
+    return fig, ax
+ 
+--- Graphic 2 (scripts/graphic2_seasonal_cycle.ipynb) ---
+ 
+MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+          "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+# Approximation of NASA's year colors, one stop per ~20 years:
+# blue -> teal -> green -> gold -> orange -> dark red
+YEAR_CMAP = LinearSegmentedColormap.from_list(
+    "nasa_like", ["#4B5FE8", "#4A7FD6", "#5AA5B5", "#83BF8E",
+                  "#A5BE62", "#C59A45", "#E0743D", "#A8322A"])
+LATEST_COLOR = "#6A1B9A"  # NASA draws the current year in purple
+ 
+ 
+def plot_seasonal_cycle(seasonal):
+    """Recreate NASA's seasonal cycle chart: one line per year, colored by year."""
+    years = seasonal.columns
+    latest = years.max()
+    norm = Normalize(vmin=years.min(), vmax=latest - 1)  # maps a year to 0-1 for the colormap
+    legend_years = list(range(1880, 2021, 20))
+ 
+    fig, ax = plt.subplots(figsize=(11, 7))
+    for year in years[years != latest]:
+        label = str(year) if year in legend_years else None
+        ax.plot(seasonal.index, seasonal[year], color=YEAR_CMAP(norm(year)),
+                linewidth=1.5, label=label)
+    # Latest (partial) year on top: purple line, plus black dots kept out of the legend
+    ax.plot(seasonal.index, seasonal[latest], color=LATEST_COLOR,
+            linewidth=1.5, label=str(latest))
+    ax.plot(seasonal.index, seasonal[latest], linestyle="none", marker="o",
+            markersize=6, color="black")
+ 
+    ax.set_title("GISTEMP Seasonal Cycle since 1880", fontsize=16)
+    ax.set_ylabel("Temperature Anomaly w.r.t. 1980-2015 (°C)", fontsize=14)
+    ax.set_xticks(range(1, 13))
+    ax.set_xticklabels(MONTHS, fontsize=14)
+    ax.set_xlim(0.5, 12.5)
+    ax.set_yticks(np.arange(-4.0, 3.01, 0.5))  # a tick every 0.5 °C
+    ax.yaxis.set_major_formatter("{x:.1f}")      # labels like -4.0, -3.5, ..., 3.0
+    ax.set_ylim(-4.0, 3.0)
+    ax.legend(loc="upper left", frameon=True, fontsize=11,
+              labelcolor="linecolor")  # legend text in each line's color
+    ax.spines[["top", "right"]].set_visible(False)
+    ax.text(0.99, 0.02, "Seasonal cycle from MERRA2. Figure: NASA/GISS/GISTEMP v4",
+            transform=ax.transAxes, ha="right", fontsize=13, color="#333333")
+    return fig, ax
+ 
+--- Graphic 3 (scripts/graphic3_global_mean.ipynb) ---
+ 
+def plot_global_mean(df):
+    """Recreate NASA's global mean land-ocean temperature anomaly chart."""
+    fig, ax = plt.subplots(figsize=(11, 6.5))
+ 
+    ax.plot(df["year"], df["annual_mean"], color="black", marker="s",
+            markersize=5, linewidth=1, label="Annual Mean")
+    ax.plot(df["year"], df["lowess"], color="#E8301E", linewidth=2.5,
+            label="Lowess Smoothing")
+ 
+    ax.set_title("Global Mean Estimates based on Land and Ocean Data", fontsize=16)
+    ax.set_ylabel("Temperature Anomaly w.r.t. 1951-80 (°C)", fontsize=14)
+    ax.set_xticks(range(1880, 2021, 20))
+    ax.set_xlim(1873, 2032)
+    ax.set_yticks(np.arange(-0.6, 1.41, 0.2))  # a tick every 0.2 °C
+    ax.yaxis.set_major_formatter("{x:.1f}") # labels like -0.6, -0.4, ..., 1.4
+    ax.set_ylim(-0.7, 1.45)
+    ax.tick_params(labelsize=13)
+    ax.legend(loc="upper left", frameon=True, fontsize=13)
+    ax.spines[["top", "right"]].set_visible(False)
+    ax.text(0.99, 0.05, "NASA/GISS/GISTEMP v4", transform=ax.transAxes,
+            ha="right", fontsize=14, color="#333333")
+    return fig, ax
+ 
+--- Graphic 4 (scripts/graphic4_nyt_replication.ipynb) ---
+ 
+def plot_nyt(df):
+    """Recreate the NYT 'Rising Global Temperature' chart."""
+    fig, ax = plt.subplots(figsize=(10, 6))
+ 
+    # Dot colors: blue below the baseline, white at 0, orange-red above it
+    cmap = LinearSegmentedColormap.from_list(
+        "nyt", ["#5b8fbf", "#f7f7f7", "#d4694a"])
+    norm = TwoSlopeNorm(vmin=-0.3, vcenter=0, vmax=1.3)
+ 
+    ax.plot(df["year"], df["anomaly_c"], color="#888888", linewidth=0.8, zorder=2)
+    ax.scatter(df["year"], df["anomaly_c"], c=df["anomaly_c"], cmap=cmap,
+               norm=norm, s=40, edgecolors="#777777", linewidths=0.6, zorder=3)
+ 
+    # Dotted gridlines and a solid line at the 1880-1899 average
+    ax.set_yticks(np.arange(-0.4, 1.21, 0.2))
+    ax.yaxis.set_major_formatter(lambda y, pos: f"{y:+.1f}°C".replace("-", "−"))
+    ax.grid(axis="y", linestyle=(0, (1, 3)), color="#bbbbbb", linewidth=0.8)
+    ax.axhline(0, color="#cccccc", linewidth=1.2, zorder=1)
+    ax.set_ylim(-0.45, 1.27)
+    ax.set_xticks(range(1880, 2011, 10))
+    ax.set_xlim(1878, 2021)
+    ax.tick_params(axis="y", length=0, labelsize=10, colors="#666666")
+    ax.tick_params(axis="x", labelsize=10, colors="#666666")
+    for side in ["top", "right", "left"]:
+        ax.spines[side].set_visible(False)
+    ax.spines["bottom"].set_color("#888888")
+ 
+    # Title and subtitle inside the plot, as in the NYT version
+    ax.text(1900, 1.0, "Rising Global Temperature", fontsize=15,
+            fontweight="bold", color="#333333")
+    ax.text(1900, 0.97, "How much cooler or warmer every year\nwas compared with "
+            "the average\ntemperature of the late 19th century",
+            fontsize=11, color="#333333", va="top", linespacing=1.5)
+ 
+    # Labels for notable years: (x shift, y shift, alignment)
+    labels = {1904: (-12, -16, "right"), 1944: (8, 0, "left"),
+              1998: (-10, 0, "right"), 2016: (8, 0, "left"), 2018: (8, -4, "left")}
+    for year, (dx, dy, ha) in labels.items():
+        y = df.loc[df["year"] == year, "anomaly_c"].item()
+        ax.annotate(str(year), (year, y), xytext=(dx, dy),
+                    textcoords="offset points", ha=ha, va="center", fontsize=11,
+                    fontweight="bold" if year == 2018 else "normal")
+ 
+    # Notes above and below the zero line
+    ax.text(2020, 0.04, "HOTTER THAN THE\n1880-1899 AVERAGE", ha="right",
+            va="bottom", fontsize=8, color="#333333", linespacing=1.6)
+    ax.text(2020, -0.04, "COLDER", ha="right", va="top", fontsize=8, color="#333333")
+ 
+    fig.text(0.125, 0.0, "Source: NASA | By The New York Times", fontsize=9,
+             color="#888888")
+    return fig, ax
+ 
+I ran each notebook, compared the output with the original chart, and asked for adjustments until they matched.
